@@ -284,7 +284,7 @@ Socket client uses `NEXT_PUBLIC_SOCKET_URL` with `wss://` automatically when the
 | CORS error in browser console | Set Railway `CORS_ORIGIN` to your Vercel origin (scheme + host, no path). |
 | Geofence 503 | `CREATE EXTENSION postgis` on Supabase. |
 | `prisma db push` hangs | Use pooler port **5432**, not **6543**. |
-| Tenant 404 on Vercel | Expected on `*.vercel.app`; configure custom subdomain or test tenants locally. |
+| Tenant 404 on Vercel | Fixed: `*.vercel.app` is ignored by middleware. For `acme.yourdomain.com`, set `TENANT_BASE_DOMAIN=yourdomain.com` on Vercel and add DNS subdomains. |
 
 ---
 
