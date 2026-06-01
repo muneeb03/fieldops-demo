@@ -1,15 +1,19 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
 
-const PORT = 4000;
-const CORS_ORIGIN = "http://localhost:3000";
+const PORT = Number(process.env.PORT) || 4000;
+// Comma-separated, e.g. http://localhost:3000,https://fieldops-demo.vercel.app
+const corsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 let counter = 0;
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
   cors: {
-    origin: CORS_ORIGIN,
+    origin: corsOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -29,6 +33,7 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Socket.io server listening on http://localhost:${PORT}`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`Socket.io server listening on port ${PORT}`);
+  console.log(`CORS origins: ${corsOrigins.join(", ")}`);
 });

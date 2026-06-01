@@ -198,12 +198,103 @@ Events: client emits `increment-counter`; server broadcasts `counter-updated`.
 | `npm run build` | Production build |
 | `npm run start` | Production Next.js |
 
-## Deployment notes
+## Deploy to Vercel + Railway
 
-- **Next.js** — deploy to Vercel (or similar) for App Router + API routes + middleware
-- **Socket.io** — deploy `server/socket-server.ts` to **Railway**, **Render**, or any long-running Node host. Vercel serverless does **not** support persistent WebSocket servers
-- Set `NEXT_PUBLIC_SOCKET_URL` to your deployed socket origin in production
-- PostgreSQL must have PostGIS enabled (`CREATE EXTENSION IF NOT EXISTS postgis;`)
+Split deployment: **Vercel** runs Next.js (middleware, API routes, UI). **Railway** runs the long-lived Socket.io process. Vercel cannot host persistent WebSockets.
+
+### Prerequisites
+
+- Git repo pushed to GitHub (or GitLab/Bitbucket)
+- Supabase project with PostGIS enabled and `prisma db push` already run
+- Two URLs after deploy: `https://your-app.vercel.app` and `https://your-socket.up.railway.app`
+
+---
+
+### 1. Deploy Socket.io on Railway
+
+1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → select `fieldops-demo`.
+2. Open the new service → **Settings**:
+   - **Start Command:** `npm run start:socket` (or use repo `railway.toml`)
+   - **Watch paths** (optional): `server/`, `package.json`
+3. **Variables** (service → Variables):
+
+   | Variable | Value |
+   |----------|--------|
+   | `CORS_ORIGIN` | `https://YOUR-APP.vercel.app` (add `,http://localhost:3000` for local testing) |
+
+   Railway sets `PORT` automatically — do not hardcode it.
+
+4. **Settings → Networking → Generate domain** → copy the public URL, e.g. `https://fieldops-socket-production.up.railway.app`
+5. Deploy. Check **Deploy Logs** for `Socket.io server listening on port …`.
+
+**Test:** open `https://YOUR-RAILWAY-URL` in a browser — you may see a blank page or connection error (normal); the server is WebSocket-only. Use the Next.js `/realtime` page to test.
+
+---
+
+### 2. Deploy Next.js on Vercel
+
+1. [vercel.com](https://vercel.com) → **Add New Project** → import the same repo.
+2. Framework: **Next.js** (auto-detected). Build command: `npm run build` (runs `prisma generate && next build`).
+3. **Environment Variables** (Production + Preview):
+
+   | Variable | Value |
+   |----------|--------|
+   | `DATABASE_URL` | Supabase **Session pooler** `:5432` URL (same as local `.env`) |
+   | `NEXT_PUBLIC_SOCKET_URL` | Railway public URL, e.g. `https://fieldops-socket-production.up.railway.app` |
+   | `NEXT_PUBLIC_SUPABASE_URL` | `https://toweotawqcslnpflwyst.supabase.co` |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase publishable key |
+
+   Do **not** put secrets only needed on the socket service on Vercel unless the app uses them.
+
+4. **Deploy**. Note your Vercel URL: `https://your-app.vercel.app`.
+
+5. **Update Railway `CORS_ORIGIN`** to your real Vercel URL and redeploy Railway if you used a placeholder.
+
+6. **Redeploy Vercel** if you changed `NEXT_PUBLIC_SOCKET_URL` (public env vars are baked in at build time).
+
+---
+
+### 3. Verify production
+
+| Check | URL / action |
+|-------|----------------|
+| Home | `https://your-app.vercel.app` |
+| Geofence | `/geofence` — inside point `40.710, -74.000` |
+| Realtime | `/realtime` — two tabs, increment counter |
+| Tenant API | `https://acme.YOUR-VERCEL-DOMAIN` only works with **custom domains**; `*.vercel.app` has no `acme.` subdomain. For demo tenants locally use `acme.localhost:3000`, or add `acme.yourdomain.com` in Vercel → Domains. |
+| Todos | `/todos` — Supabase table + RLS policies |
+
+Socket client uses `NEXT_PUBLIC_SOCKET_URL` with `wss://` automatically when the page is served over HTTPS.
+
+---
+
+### 4. Supabase + Prisma on Vercel
+
+- Run **`npx prisma db push`** from your machine (Session pooler `:5432`), not on Vercel build, unless you add a CI step.
+- Enable PostGIS once in Supabase SQL Editor.
+- Optional: use Supabase **transaction pooler** `:6543` + `?pgbouncer=true` for `DATABASE_URL` on Vercel if you hit connection limits; keep Session `:5432` for migrations locally.
+
+---
+
+### 5. Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Realtime “Cannot connect” | `NEXT_PUBLIC_SOCKET_URL` must match Railway URL exactly (https, no trailing slash). Redeploy Vercel after changing. |
+| CORS error in browser console | Set Railway `CORS_ORIGIN` to your Vercel origin (scheme + host, no path). |
+| Geofence 503 | `CREATE EXTENSION postgis` on Supabase. |
+| `prisma db push` hangs | Use pooler port **5432**, not **6543**. |
+| Tenant 404 on Vercel | Expected on `*.vercel.app`; configure custom subdomain or test tenants locally. |
+
+---
+
+### Architecture
+
+```text
+Browser → Vercel (Next.js, API, middleware)
+Browser → Railway (Socket.io, port from $PORT)
+Vercel API → Supabase Postgres (PostGIS)
+```
 
 ## Project layout
 
