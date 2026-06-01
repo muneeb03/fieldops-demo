@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import {
+  DEMO_TENANTS,
+  UNKNOWN_TENANT,
+  tenantOrigin,
+} from "@/lib/tenant-links";
 
 export default function HomePage() {
   const headersList = headers();
   const tenantId = headersList.get("x-tenant-id");
+  const tenantBase = process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN?.toLowerCase();
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
@@ -24,21 +30,7 @@ export default function HomePage() {
           </p>
         ) : (
           <p className="mt-2 text-slate-600">
-            No tenant on plain <code>localhost:3000</code>. Try{" "}
-            <a
-              href="http://acme.localhost:3000"
-              className="text-blue-600 underline"
-            >
-              acme.localhost:3000
-            </a>{" "}
-            or{" "}
-            <a
-              href="http://beta.localhost:3000"
-              className="text-blue-600 underline"
-            >
-              beta.localhost:3000
-            </a>
-            .
+            No tenant on this host. Use a tenant subdomain below.
           </p>
         )}
         <p className="mt-2 text-sm text-slate-500">
@@ -47,6 +39,65 @@ export default function HomePage() {
             GET /api/tenant
           </Link>
         </p>
+
+        <div className="mt-4 space-y-3 text-sm">
+          <p className="font-medium text-slate-700">Local (no DNS setup)</p>
+          <ul className="list-inside list-disc space-y-1 text-slate-600">
+            {DEMO_TENANTS.map((sub) => (
+              <li key={sub}>
+                <a
+                  href={`http://${sub}.localhost:3000`}
+                  className="text-blue-600 underline"
+                >
+                  {sub}.localhost:3000
+                </a>
+              </li>
+            ))}
+            <li>
+              <a
+                href={`http://${UNKNOWN_TENANT}.localhost:3000`}
+                className="text-blue-600 underline"
+              >
+                {UNKNOWN_TENANT}.localhost:3000
+              </a>{" "}
+              → 404
+            </li>
+          </ul>
+
+          {tenantBase ? (
+            <>
+              <p className="font-medium text-slate-700">Production</p>
+              <ul className="list-inside list-disc space-y-1 text-slate-600">
+                {DEMO_TENANTS.map((sub) => (
+                  <li key={sub}>
+                    <a
+                      href={tenantOrigin(sub, tenantBase)}
+                      className="text-blue-600 underline"
+                    >
+                      {sub}.{tenantBase}
+                    </a>
+                  </li>
+                ))}
+                <li>
+                  <a
+                    href={tenantOrigin(UNKNOWN_TENANT, tenantBase)}
+                    className="text-blue-600 underline"
+                  >
+                    {UNKNOWN_TENANT}.{tenantBase}
+                  </a>{" "}
+                  → 404
+                </li>
+              </ul>
+            </>
+          ) : (
+            <p className="rounded bg-amber-50 px-3 py-2 text-amber-900">
+              Live tenant subdomains need a custom domain on Vercel (not{" "}
+              <code>*.vercel.app</code>). Set{" "}
+              <code>TENANT_BASE_DOMAIN</code> and{" "}
+              <code>NEXT_PUBLIC_TENANT_BASE_DOMAIN</code> — see README.
+            </p>
+          )}
+        </div>
       </section>
 
       <nav className="mt-8 flex flex-col gap-3">

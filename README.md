@@ -243,6 +243,8 @@ Split deployment: **Vercel** runs Next.js (middleware, API routes, UI). **Railwa
    | `NEXT_PUBLIC_SOCKET_URL` | Railway public URL, e.g. `https://fieldops-socket-production.up.railway.app` |
    | `NEXT_PUBLIC_SUPABASE_URL` | `https://toweotawqcslnpflwyst.supabase.co` |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase publishable key |
+   | `TENANT_BASE_DOMAIN` | Your domain, e.g. `yourdomain.com` (after DNS setup) |
+   | `NEXT_PUBLIC_TENANT_BASE_DOMAIN` | Same as above (shows live tenant links on home) |
 
    Do **not** put secrets only needed on the socket service on Vercel unless the app uses them.
 
@@ -261,10 +263,49 @@ Split deployment: **Vercel** runs Next.js (middleware, API routes, UI). **Railwa
 | Home | `https://your-app.vercel.app` |
 | Geofence | `/geofence` — inside point `40.710, -74.000` |
 | Realtime | `/realtime` — two tabs, increment counter |
-| Tenant API | `https://acme.YOUR-VERCEL-DOMAIN` only works with **custom domains**; `*.vercel.app` has no `acme.` subdomain. For demo tenants locally use `acme.localhost:3000`, or add `acme.yourdomain.com` in Vercel → Domains. |
+| Tenant | See [Tenant demo on live URL](#tenant-demo-on-live-url) below |
 | Todos | `/todos` — Supabase table + RLS policies |
 
 Socket client uses `NEXT_PUBLIC_SOCKET_URL` with `wss://` automatically when the page is served over HTTPS.
+
+---
+
+### Tenant demo on live URL
+
+Vercel assigns one hostname per project (`fieldops-demo-beta.vercel.app`). You **cannot** create `acme.fieldops-demo-beta.vercel.app` on `*.vercel.app`. Tenant middleware reads the **Host** header, so production tenants need **your own domain** with real subdomains.
+
+#### Option A — Custom domain on Vercel (live `acme.` / `beta.` links)
+
+1. Use any domain you control (Namecheap, Cloudflare, etc.).
+2. **Vercel** → Project → **Settings → Domains** → add:
+   - `yourdomain.com` (optional apex)
+   - `acme.yourdomain.com`
+   - `beta.yourdomain.com`
+   - `unknown.yourdomain.com` (to demo 404)
+3. At your DNS provider, add **CNAME** records Vercel shows (each subdomain → `cname.vercel-dns.com` or similar).
+4. **Vercel → Environment Variables** (Production):
+
+   | Variable | Example |
+   |----------|---------|
+   | `TENANT_BASE_DOMAIN` | `yourdomain.com` |
+   | `NEXT_PUBLIC_TENANT_BASE_DOMAIN` | `yourdomain.com` |
+
+5. **Redeploy** Vercel.
+6. Test:
+   - https://acme.yourdomain.com → `tenant-acme-001`
+   - https://beta.yourdomain.com → `tenant-beta-002`
+   - https://unknown.yourdomain.com → **404** Tenant not found
+   - https://yourdomain.com → home, no tenant (apex)
+
+The home page lists production tenant links when `NEXT_PUBLIC_TENANT_BASE_DOMAIN` is set.
+
+#### Option B — Local only (no domain)
+
+- http://acme.localhost:3000  
+- http://beta.localhost:3000  
+- http://unknown.localhost:3000 → 404  
+
+Mention this in your Upwork proposal if you have not added a custom domain yet.
 
 ---
 
